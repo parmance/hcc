@@ -2208,11 +2208,6 @@ HSADispatch::dispatchKernel(hsa_queue_t* commandQueue) {
                                             &group_segment_size);
     STATUS_CHECK_Q(status, commandQueue, __LINE__);
 
-    // let kernel know static group segment size
-    kernel->executable->setSymbolToValue("&hcc_static_group_segment_size", group_segment_size);
-
-    // let kernel know dynamic group segment size
-    kernel->executable->setSymbolToValue("&hcc_dynamic_group_segment_size", this->dynamicGroupSize);
 
     // add dynamic group segment size
     group_segment_size += this->dynamicGroupSize;
