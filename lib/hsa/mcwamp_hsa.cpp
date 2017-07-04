@@ -1099,6 +1099,19 @@ public:
         /// Query the maximum number of work-items in each dimension of a workgroup
         status = hsa_agent_get_info(agent, HSA_AGENT_INFO_WORKGROUP_MAX_DIM, &workgroup_max_dim);
 
+        if (workgroup_max_dim[0] < 512 ||
+            workgroup_max_dim[1] < 512 ||
+            workgroup_max_dim[2] < 512 ||
+            workgroup_max_size < 512) {
+          // There's a fixed 512 group memory and assumption of 512
+          // local size (even though launched with a smaller size) in
+          // the ParalleSTL 'reduce'. Tests with filter 'reduce' produce
+          // wrong results in case of a smaller size reported by the
+          // Agent like phsa-runtime does by default.
+          printf("### hcc assumes that at least a 512 local size can be used.\n");
+          assert (false);
+        }
+
         STATUS_CHECK(status, __LINE__);
 
         /// Get ISA associated with the agent
