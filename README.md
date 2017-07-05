@@ -7,13 +7,15 @@ HSA-supported devices. It is tested against the Portable HSA (phsa) stack
 which is an open source implementation of HSA utilizing the gcc's BRIG
 frontend for HSAIL finalization.
 
-hcc-phsa was forked from the hcc at a point of development before upstream HCC
-removed the HSAIL backend support.
-
-The primary programming model of interest is C++17 Parallel STL which
+The primary programming model of interest is currently C++17 Parallel STL which
 allows heterogeneous computation offloading using the C++ standard.
 
-See the original HCC's [README.TXT](https://raw.githubusercontent.com/parmance/hcc/phsa/README.TXT) for more info on HCC project.
+hcc-phsa was forked from the hcc at a point of development before upstream HCC
+removed the HSAIL backend support. See the original HCC's [README.TXT](https://raw.githubusercontent.com/parmance/hcc/phsa/README.TXT) for more info. The HCC
+project's upstream repository is [here](https://github.com/RadeonOpenCompute/hcc).
+
+The hcc-phsa work is being done by [Parmance's](http://parmance.com) developers
+for [General Processor Technologies](http://www.generalprocessortech.com/).
 
 ## Using HCC with PHSA
 
