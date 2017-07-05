@@ -1,13 +1,13 @@
-# phsa-hcc
+# hcc-phsa
 
 This is a fork of HCC that works on top of the HSA standard. The goal of
-the phsa-hcc fork is to make it a robust compiler that provides the various
+the hcc-phsa fork is to make it a robust compiler that provides the various
 higher-level heterogeneous programming model options provided by HCC for
 HSA-supported devices. It is tested against the Portable HSA (phsa) stack
 which is an open source implementation of HSA utilizing the gcc's BRIG
 frontend for HSAIL finalization.
 
-phsa-hcc was forked from the hcc at a point of development before upstream HCC
+hcc-phsa was forked from the hcc at a point of development before upstream HCC
 removed the HSAIL backend support.
 
 The primary programming model of interest is C++17 Parallel STL which
