@@ -268,6 +268,10 @@ public:
         return pQueue.get()->getDev()->GetMaxTileStaticSize();
     }
 
+    size_t get_wavefront_size() {
+        return pQueue.get()->getDev()->GetWavefrontSize();
+    }
+
     /**
      * Returns the number of pending asynchronous operations on this
      * accelerator view.
@@ -663,8 +667,7 @@ public:
      * Get the default cpu access_type for buffers created on this accelerator
      */
     access_type get_default_cpu_access_type() const { return pDev->get_access(); }
-  
-  
+
     /**
      * Returns the maximum size of tile static area available on this
      * accelerator.
@@ -672,7 +675,11 @@ public:
     size_t get_max_tile_static_size() {
       return get_default_view().get_max_tile_static_size();
     }
-  
+
+    size_t get_wavefront_size() {
+      return get_default_view().get_wavefront_size();
+    }
+
     /**
      * Returns a vector of all accelerator_view associated with this accelerator.
      */
@@ -2261,8 +2268,6 @@ extern "C" inline uint64_t __ballot(int predicate) __HC__ {
 // Wavefront Shuffle Functions
 // ------------------------------------------------------------------------
 
-#define __HSA_WAVEFRONT_SIZE__ (64)
-
 // utility union type
 union __u {
     int i;
@@ -2278,24 +2283,27 @@ union __u {
  * is fixed as 0.
  *
  * The function returns the value of var held by the work-item whose ID is given
- * by srcLane. If width is less than __HSA_WAVEFRONT_SIZE__ then each
+ * by srcLane. If width is less than wavefront size then each
  * subsection of the wavefront behaves as a separate entity with a starting
  * logical work-item ID of 0. If srcLane is outside the range [0:width-1], the
  * value returned corresponds to the value of var held by:
  * srcLane modulo width (i.e. within the same subsection).
  *
  * The optional width parameter must have a value which is a power of 2;
- * results are undefined if it is not a power of 2, or is number greater than
- * __HSA_WAVEFRONT_SIZE__.
+ * results are undefined if it is not a power of 2.
  */
-inline int __shfl(int var, int srcLane, int width=__HSA_WAVEFRONT_SIZE__) __HC__ {
+inline int __shfl(int var, int srcLane, int width=0) __HC__ {
+    if (width == 0)
+      width = __wavesize();
     unsigned int laneId = __activelaneid_u32();
     unsigned int shift = __popcount_u32_b32(width - 1);
     unsigned int newSrcLane = ((laneId >> shift) << shift) + (srcLane & (width - 1));
     return __activelanepermute_b32(var, newSrcLane, 0, 0);
 }
 
-inline float __shfl(float var, int srcLane, int width=__HSA_WAVEFRONT_SIZE__) __HC__ {
+inline float __shfl(float var, int srcLane, int width=0) __HC__ {
+    if (width == 0)
+      width = __wavesize();
     __u tmp; tmp.f = var;
     tmp.i = __shfl(tmp.i, srcLane, width);
     return tmp.f;
@@ -2316,16 +2324,18 @@ inline float __shfl(float var, int srcLane, int width=__HSA_WAVEFRONT_SIZE__) __
  * The function calculates a source work-item ID by subtracting delta from the
  * caller's work-item ID within the wavefront. The value of var held by the
  * resulting lane ID is returned: in effect, var is shifted up the wavefront by
- * delta work-items. If width is less than __HSA_WAVEFRONT_SIZE__ then each
+ * delta work-items. If width is less than wavefront size then each
  * subsection of the wavefront behaves as a separate entity with a starting
  * logical work-item ID of 0. The source work-item index will not wrap around
  * the value of width, so effectively the lower delta work-items will be unchanged.
  *
  * The optional width parameter must have a value which is a power of 2;
  * results are undefined if it is not a power of 2, or is number greater than
- * __HSA_WAVEFRONT_SIZE__.
+ * wavefront size.
  */
-inline int __shfl_up(int var, unsigned int delta, int width=__HSA_WAVEFRONT_SIZE__) __HC__ {
+inline int __shfl_up(int var, unsigned int delta, int width=0) __HC__ {
+    if (width == 0)
+      width = __wavesize();
     unsigned int laneId = __activelaneid_u32();
     unsigned int shift = __popcount_u32_b32(width - 1);
     unsigned int logicalLaneId = laneId & (width - 1);
@@ -2333,7 +2343,9 @@ inline int __shfl_up(int var, unsigned int delta, int width=__HSA_WAVEFRONT_SIZE
     return __activelanepermute_b32(var, newSrcLane, 0, 0);
 }
 
-inline float __shfl_up(float var, unsigned int delta, int width=__HSA_WAVEFRONT_SIZE__) __HC__ {
+inline float __shfl_up(float var, unsigned int delta, int width=0) __HC__ {
+    if (width == 0)
+      width = __wavesize();
     __u tmp; tmp.f = var;
     tmp.i = __shfl_up(tmp.i, delta, width);
     return tmp.f;
@@ -2353,7 +2365,7 @@ inline float __shfl_up(float var, unsigned int delta, int width=__HSA_WAVEFRONT_
  * The function calculates a source work-item ID by adding delta from the
  * caller's work-item ID within the wavefront. The value of var held by the
  * resulting lane ID is returned: this has the effect of shifting var up the
- * wavefront by delta work-items. If width is less than __HSA_WAVEFRONT_SIZE__
+ * wavefront by delta work-items. If width is less than wavefront size
  * then each subsection of the wavefront behaves as a separate entity with a
  * starting logical work-item ID of 0. The ID number of the source work-item
  * index will not wrap around the value of width, so the upper delta work-items
@@ -2361,9 +2373,11 @@ inline float __shfl_up(float var, unsigned int delta, int width=__HSA_WAVEFRONT_
  *
  * The optional width parameter must have a value which is a power of 2;
  * results are undefined if it is not a power of 2, or is number greater than
- * __HSA_WAVEFRONT_SIZE__.
+ * wavefront size.
  */
-inline int __shfl_down(int var, unsigned int delta, int width=__HSA_WAVEFRONT_SIZE__) __HC__ {
+inline int __shfl_down(int var, unsigned int delta, int width=0) __HC__ {
+    if (width == 0)
+      width = __wavesize();
     unsigned int laneId = __activelaneid_u32();
     unsigned int shift = __popcount_u32_b32(width - 1);
     unsigned int logicalLaneId = laneId & (width - 1);
@@ -2371,7 +2385,9 @@ inline int __shfl_down(int var, unsigned int delta, int width=__HSA_WAVEFRONT_SI
     return __activelanepermute_b32(var, newSrcLane, 0, 0);
 }
 
-inline float __shfl_down(float var, unsigned int delta, int width=__HSA_WAVEFRONT_SIZE__) __HC__ {
+inline float __shfl_down(float var, unsigned int delta, int width=0) __HC__ {
+    if (width == 0)
+      width = __wavesize();
     __u tmp; tmp.f = var;
     tmp.i = __shfl_down(tmp.i, delta, width);
     return tmp.f;
@@ -2394,9 +2410,11 @@ inline float __shfl_down(float var, unsigned int delta, int width=__HSA_WAVEFRON
  *
  * The optional width parameter must have a value which is a power of 2;
  * results are undefined if it is not a power of 2, or is number greater than
- * __HSA_WAVEFRONT_SIZE__.
+ * wavefront size.
  */
-inline int __shfl_xor(int var, int laneMask, int width=__HSA_WAVEFRONT_SIZE__) __HC__ {
+inline int __shfl_xor(int var, int laneMask, int width=0) __HC__ {
+    if (width == 0)
+      width = __wavesize();
     unsigned int laneId = __activelaneid_u32();
     unsigned int shift = __popcount_u32_b32(width - 1);
     unsigned int logicalLaneId = laneId & (width - 1);
@@ -2404,7 +2422,9 @@ inline int __shfl_xor(int var, int laneMask, int width=__HSA_WAVEFRONT_SIZE__) _
     return __activelanepermute_b32(var, newSrcLane, 0, 0);
 }
 
-inline float __shfl_xor(float var, int laneMask, int width=__HSA_WAVEFRONT_SIZE__) __HC__ {
+inline float __shfl_xor(float var, int laneMask, int width=0) __HC__ {
+    if (width == 0)
+      width = __wavesize();
     __u tmp; tmp.f = var;
     tmp.i = __shfl_xor(tmp.i, laneMask, width);
     return tmp.f;
@@ -7028,5 +7048,11 @@ __attribute__((noinline,used)) completion_future parallel_for_each(
 #endif
 }
 #pragma clang diagnostic pop
+
+inline unsigned get_default_device_wavefront_size() {
+  hc::accelerator acc;
+  hc::accelerator_view av = acc.get_default_view();
+  return av.get_wavefront_size();
+}
 
 } // namespace hc

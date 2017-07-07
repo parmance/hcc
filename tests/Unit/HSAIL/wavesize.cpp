@@ -6,7 +6,7 @@
 #include <iostream>
 #include <vector>
 
-#define ANSWER (64) // for now all HSA agents have wavefront of size 64
+#define ANSWER (hc::get_default_device_wavefront_size())
 
 #define GRID_SIZE (1024)
 

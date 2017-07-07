@@ -7,7 +7,7 @@
 #include <vector>
 #include <random>
 
-#define WAVEFRONT_SIZE (64) // as of now, all HSA agents have wavefront size of 64
+#define WAVEFRONT_SIZE (hc::get_default_device_wavefront_size())
 
 #define TEST_DEBUG (0)
 
@@ -83,10 +83,12 @@ bool test_scan(int grid_size, int sub_wavefront_width) {
   extent<1> ex(grid_size);
   array<int, 1> table(grid_size);
 
-  parallel_for_each(ex, [&, sub_wavefront_width](index<1>& idx) [[hc]] {
+  size_t wavefront_size = WAVEFRONT_SIZE;
+
+  parallel_for_each(ex, [&, wavefront_size, sub_wavefront_width](index<1>& idx) [[hc]] {
     int laneId = __activelaneid_u32();
     int logicalLaneId = laneId % sub_wavefront_width;
-    int value = (WAVEFRONT_SIZE - 1) - laneId;
+    int value = (wavefront_size - 1) - laneId;
 
     for (int i = 1; i <= (sub_wavefront_width / 2); i *= 2) {
       int n = __shfl_up(value, i, sub_wavefront_width);
@@ -124,6 +126,9 @@ int main() {
   std::random_device rd;
   std::uniform_int_distribution<int> int_dist(0, 1023);
   std::uniform_real_distribution<float> float_dist(0.0, 1.0);
+
+  if (WAVEFRONT_SIZE == 1)
+    return EXIT_SUCCESS;
 
   // test __shfl_up for different grid sizes and offsets
   ret &= test__shfl_up<int>(2, 0, int_dist(rd));
