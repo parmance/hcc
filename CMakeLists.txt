@@ -22,9 +22,7 @@ IF (NOT CMAKE_BUILD_TYPE)
 ENDIF(NOT CMAKE_BUILD_TYPE)
 
 # set default cppamp-ng URL
-IF (NOT CLANG_URL)
-  SET(CLANG_URL "https://github.com/RadeonOpenCompute/hcc-clang.git" CACHE STRING "CLANG URL" FORCE)
-ENDIF (NOT CLANG_URL)
+SET(CLANG_URL "https://github.com/parmance/hcc-clang.git" CACHE STRING "CLANG URL" FORCE)
 set(CMAKE_MACOSX_RPATH 1)
 
 IF (NOT NUM_BUILD_THREADS)
