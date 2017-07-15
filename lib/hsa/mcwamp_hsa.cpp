@@ -1555,6 +1555,7 @@ private:
 
     bool useCoarseGrainedRegion;
 
+    uint32_t wavefront_size;
     uint32_t workgroup_max_size;
     uint16_t workgroup_max_dim[3];
 
@@ -1580,6 +1581,10 @@ public:
     UnpinnedCopyEngine::CopyMode  copy_mode;
 
 public:
+
+    uint32_t getWaveFrontSize() {
+      return wavefront_size;
+    }
 
     uint32_t getWorkgroupMaxSize() {
         return workgroup_max_size;
@@ -1854,7 +1859,10 @@ public:
 
         /// Query the maximum number of work-items in each dimension of a workgroup
         status = hsa_agent_get_info(agent, HSA_AGENT_INFO_WORKGROUP_MAX_DIM, &workgroup_max_dim);
+        STATUS_CHECK(status, __LINE__);
 
+        /// Query the wavefront size
+        status = hsa_agent_get_info(agent, HSA_AGENT_INFO_WAVEFRONT_SIZE, &wavefront_size);
         STATUS_CHECK(status, __LINE__);
 
         /// Get ISA associated with the agent
@@ -2188,6 +2196,10 @@ public:
 
     size_t GetMaxTileStaticSize() override {
         return max_tile_static_size;
+    }
+
+    size_t GetWaveFrontSize() override {
+        return wavefront_size;
     }
 
     std::vector< std::shared_ptr<KalmarQueue> > get_all_queues() override {

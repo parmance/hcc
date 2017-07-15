@@ -7,7 +7,7 @@
 #include <vector>
 #include <random>
 
-#define WAVEFRONT_SIZE (64) // as of now, all HSA agents have wavefront size of 64
+#define WAVEFRONT_SIZE (hc::get_default_device_wavefront_size())
 
 #define TEST_DEBUG (0)
 

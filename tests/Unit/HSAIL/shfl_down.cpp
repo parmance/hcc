@@ -7,7 +7,7 @@
 #include <vector>
 #include <random>
 
-#define WAVEFRONT_SIZE (64) // as of now, all HSA agents have wavefront size of 64
+#define WAVEFRONT_SIZE (hc::get_default_device_wavefront_size())
 
 #define TEST_DEBUG (0)
 
@@ -83,12 +83,15 @@ bool test__shfl_down2(int grid_size, int sub_wavefront_width, int offset, T init
 int main() {
   bool ret = true;
 
-  // NOTICE: the test case is designed so grid size is always a multiple of wavefront size (64),
+  // NOTICE: the test case is designed so grid size is always a multiple of wavefront size,
   // so there will not be any inactive work-items
 
   std::random_device rd;
   std::uniform_int_distribution<int> int_dist(0, 1023);
   std::uniform_real_distribution<float> float_dist(0.0, 1.0);
+
+  if (WAVEFRONT_SIZE == 1)
+    return EXIT_SUCCESS;
 
   // test __shfl_down for different grid sizes and offsets
   ret &= test__shfl_down<int>(64, 1, int_dist(rd));

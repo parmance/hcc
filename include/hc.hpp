@@ -839,7 +839,11 @@ public:
     size_t get_max_tile_static_size() {
       return get_default_view().get_max_tile_static_size();
     }
-  
+
+    size_t get_wavefront_size() {
+      return pDev->GetWaveFrontSize();
+    }
+
     /**
      * Returns a vector of all accelerator_view associated with this accelerator.
      */
@@ -2181,13 +2185,13 @@ tiled_extent<3> extent<N>::tile_with_dynamic(int t0, int t1, int t2, int dynamic
  *
  * @return The size of a wavefront.
  */
-#define __HSA_WAVEFRONT_SIZE__ (64)
 extern "C" unsigned int __wavesize() __HC__; 
 
+#define __AMDGPU_WAVEFRONT_SIZE__ (64)
 
 #if __hcc_backend__==HCC_BACKEND_AMDGPU
 extern "C" inline unsigned int __wavesize() __HC__ {
-  return __HSA_WAVEFRONT_SIZE__;
+  return __AMDGPU_WAVEFRONT_SIZE__;
 }
 #endif
 
@@ -2638,7 +2642,7 @@ union __u {
  * is fixed as 0.
  *
  * The function returns the value of var held by the work-item whose ID is given
- * by srcLane. If width is less than __HSA_WAVEFRONT_SIZE__ then each
+ * by srcLane. If width is less than the wavefront size then each
  * subsection of the wavefront behaves as a separate entity with a starting
  * logical work-item ID of 0. If srcLane is outside the range [0:width-1], the
  * value returned corresponds to the value of var held by:
@@ -2646,7 +2650,7 @@ union __u {
  *
  * The optional width parameter must have a value which is a power of 2;
  * results are undefined if it is not a power of 2, or is number greater than
- * __HSA_WAVEFRONT_SIZE__.
+ * the wavefront size.
  */
 
 extern "C" __attribute__((const)) unsigned int __hsail_get_lane_id(void) __HC__;
@@ -2812,7 +2816,7 @@ inline int __wavefront_shift_left(int var) __HC__ {
 
 #if __hcc_backend__==HCC_BACKEND_AMDGPU
 
-inline int __shfl(int var, int srcLane, int width=__HSA_WAVEFRONT_SIZE__) __HC__ {
+inline int __shfl(int var, int srcLane, int width=__AMDGPU_WAVEFRONT_SIZE__) __HC__ {
   int self = __lane_id();
   int index = srcLane + (self & ~(width-1));
   return __amdgcn_ds_bpermute(index<<2, var);
@@ -2820,7 +2824,11 @@ inline int __shfl(int var, int srcLane, int width=__HSA_WAVEFRONT_SIZE__) __HC__
 
 #elif __hcc_backend__==HCC_BACKEND_HSAIL
 
-inline int __shfl(int var, int srcLane, int width=__HSA_WAVEFRONT_SIZE__) __HC__ {
+inline int __shfl(int var, int srcLane, int width=0) __HC__ {
+
+    if (width == 0)
+      width = __wavesize();
+
     switch (width) {
       case 64:
         return __hsail_activelanepermute_b32(var,srcLane&63, 0, 0);
@@ -2836,14 +2844,21 @@ inline int __shfl(int var, int srcLane, int width=__HSA_WAVEFRONT_SIZE__) __HC__
 
 #endif
 
-inline unsigned int __shfl(unsigned int var, int srcLane, int width=__HSA_WAVEFRONT_SIZE__) __HC__ {
+inline unsigned int __shfl(unsigned int var, int srcLane, int width=0) __HC__ {
+
+    if (width == 0)
+      width = __wavesize();
+
      __u tmp; tmp.u = var;
     tmp.i = __shfl(tmp.i, srcLane, width);
     return tmp.u;
 }
 
 
-inline float __shfl(float var, int srcLane, int width=__HSA_WAVEFRONT_SIZE__) __HC__ {
+inline float __shfl(float var, int srcLane, int width=0) __HC__ {
+    if (width == 0)
+      width = __wavesize();
+
     __u tmp; tmp.f = var;
     tmp.i = __shfl(tmp.i, srcLane, width);
     return tmp.f;
@@ -2864,19 +2879,19 @@ inline float __shfl(float var, int srcLane, int width=__HSA_WAVEFRONT_SIZE__) __
  * The function calculates a source work-item ID by subtracting delta from the
  * caller's work-item ID within the wavefront. The value of var held by the
  * resulting lane ID is returned: in effect, var is shifted up the wavefront by
- * delta work-items. If width is less than __HSA_WAVEFRONT_SIZE__ then each
+ * delta work-items. If width is less than the wavefront size then each
  * subsection of the wavefront behaves as a separate entity with a starting
  * logical work-item ID of 0. The source work-item index will not wrap around
  * the value of width, so effectively the lower delta work-items will be unchanged.
  *
  * The optional width parameter must have a value which is a power of 2;
  * results are undefined if it is not a power of 2, or is number greater than
- * __HSA_WAVEFRONT_SIZE__.
+ * the wavefront size.
  */
 
 #if __hcc_backend__==HCC_BACKEND_AMDGPU
 
-inline int __shfl_up(int var, const unsigned int delta, const int width=__HSA_WAVEFRONT_SIZE__) __HC__ {
+inline int __shfl_up(int var, const unsigned int delta, int width=__AMDGPU_WAVEFRONT_SIZE__) __HC__ {
   int self = __lane_id();
   int index = self - delta;
   index = (index < (self & ~(width-1)))?self:index;
@@ -2885,9 +2900,12 @@ inline int __shfl_up(int var, const unsigned int delta, const int width=__HSA_WA
 
 #elif __hcc_backend__==HCC_BACKEND_HSAIL
 
-inline int __shfl_up(int var, const unsigned int delta, const int width=__HSA_WAVEFRONT_SIZE__) __HC__ {
-    if (delta == 1 
-        && width == __HSA_WAVEFRONT_SIZE__) {
+inline int __shfl_up(int var, const unsigned int delta, int width=0) __HC__ {
+    if (width == 0)
+       width = __wavesize();
+
+    if (delta == 1
+        && width == 64) {
         return __wavefront_shift_right(var);
     }
     else {
@@ -2898,13 +2916,21 @@ inline int __shfl_up(int var, const unsigned int delta, const int width=__HSA_WA
 }
 #endif
 
-inline unsigned int __shfl_up(unsigned int var, const unsigned int delta, const int width=__HSA_WAVEFRONT_SIZE__) __HC__ {
+inline unsigned int __shfl_up(unsigned int var, const unsigned int delta, int width=0) __HC__ {
+
+    if (width == 0)
+       width = __wavesize();
+
     __u tmp; tmp.u = var;
     tmp.i = __shfl_up(tmp.i, delta, width);
     return tmp.u;
 }
 
-inline float __shfl_up(float var, const unsigned int delta, const int width=__HSA_WAVEFRONT_SIZE__) __HC__ {
+inline float __shfl_up(float var, const unsigned int delta, int width=0) __HC__ {
+
+    if (width == 0)
+       width = __wavesize();
+
     __u tmp; tmp.f = var;
     tmp.i = __shfl_up(tmp.i, delta, width);
     return tmp.f;
@@ -2925,7 +2951,7 @@ inline float __shfl_up(float var, const unsigned int delta, const int width=__HS
  * The function calculates a source work-item ID by adding delta from the
  * caller's work-item ID within the wavefront. The value of var held by the
  * resulting lane ID is returned: this has the effect of shifting var up the
- * wavefront by delta work-items. If width is less than __HSA_WAVEFRONT_SIZE__
+ * wavefront by delta work-items. If width is less than the wavefront size
  * then each subsection of the wavefront behaves as a separate entity with a
  * starting logical work-item ID of 0. The ID number of the source work-item
  * index will not wrap around the value of width, so the upper delta work-items
@@ -2933,12 +2959,12 @@ inline float __shfl_up(float var, const unsigned int delta, const int width=__HS
  *
  * The optional width parameter must have a value which is a power of 2;
  * results are undefined if it is not a power of 2, or is number greater than
- * __HSA_WAVEFRONT_SIZE__.
+ * the wavefront size.
  */
 
 #if __hcc_backend__==HCC_BACKEND_AMDGPU
 
-inline int __shfl_down(int var, const unsigned int delta, const int width=__HSA_WAVEFRONT_SIZE__) __HC__ {
+inline int __shfl_down(int var, const unsigned int delta, const int width=__AMDGPU_WAVEFRONT_SIZE__) __HC__ {
   int self = __lane_id();
   int index = self + delta;
   index = ((self&(width-1))+delta) >= width?self:index;
@@ -2947,9 +2973,12 @@ inline int __shfl_down(int var, const unsigned int delta, const int width=__HSA_
 
 #elif __hcc_backend__==HCC_BACKEND_HSAIL
 
-inline int __shfl_down(int var, const unsigned int delta, const int width=__HSA_WAVEFRONT_SIZE__) __HC__ {
+inline int __shfl_down(int var, const unsigned int delta, int width=0) __HC__ {
+    if (width == 0)
+       width = __wavesize();
+
     if (delta == 1
-        && width == __HSA_WAVEFRONT_SIZE__) {
+        && width == 64) {
         return __wavefront_shift_left(var);
     }
     else {
@@ -2961,13 +2990,19 @@ inline int __shfl_down(int var, const unsigned int delta, const int width=__HSA_
 
 #endif
 
-inline unsigned int __shfl_down(unsigned int var, const unsigned int delta, const int width=__HSA_WAVEFRONT_SIZE__) __HC__ {
+inline unsigned int __shfl_down(unsigned int var, const unsigned int delta, int width=0) __HC__ {
+    if (width == 0)
+       width = __wavesize();
+
     __u tmp; tmp.u = var;
     tmp.i = __shfl_down(tmp.i, delta, width);
     return tmp.u;
 }
 
-inline float __shfl_down(float var, const unsigned int delta, const int width=__HSA_WAVEFRONT_SIZE__) __HC__ {
+inline float __shfl_down(float var, const unsigned int delta, int width=0) __HC__ {
+    if (width == 0)
+       width = __wavesize();
+
     __u tmp; tmp.f = var;
     tmp.i = __shfl_down(tmp.i, delta, width);
     return tmp.f;
@@ -2992,13 +3027,13 @@ inline float __shfl_down(float var, const unsigned int delta, const int width=__
  *
  * The optional width parameter must have a value which is a power of 2;
  * results are undefined if it is not a power of 2, or is number greater than
- * __HSA_WAVEFRONT_SIZE__.
+ * the wavefront size.
  */
 
 #if __hcc_backend__==HCC_BACKEND_AMDGPU
 
 
-inline int __shfl_xor(int var, int laneMask, int width=__HSA_WAVEFRONT_SIZE__) __HC__ {
+inline int __shfl_xor(int var, int laneMask, int width=__AMDGPU_WAVEFRONT_SIZE__) __HC__ {
   int self = __lane_id();
   int index = self^laneMask;
   index = index >= ((self+width)&~(width-1))?self:index;
@@ -3009,7 +3044,11 @@ inline int __shfl_xor(int var, int laneMask, int width=__HSA_WAVEFRONT_SIZE__) _
 #elif __hcc_backend__==HCC_BACKEND_HSAIL
 
 
-inline int __shfl_xor(int var, int laneMask, int width=__HSA_WAVEFRONT_SIZE__) __HC__ {
+inline int __shfl_xor(int var, int laneMask, int width=0) __HC__ {
+
+    if (width == 0)
+       width = __wavesize();
+
     int self = __lane_id();
     int index = self^laneMask;
     index = index >= ((self+width)&~(width-1))?self:index;
@@ -3018,7 +3057,11 @@ inline int __shfl_xor(int var, int laneMask, int width=__HSA_WAVEFRONT_SIZE__) _
 
 #endif
 
-inline float __shfl_xor(float var, int laneMask, int width=__HSA_WAVEFRONT_SIZE__) __HC__ {
+inline float __shfl_xor(float var, int laneMask, int width=0) __HC__ {
+
+    if (width == 0)
+       width = __wavesize();
+
     __u tmp; tmp.f = var;
     tmp.i = __shfl_xor(tmp.i, laneMask, width);
     return tmp.f;
@@ -3027,7 +3070,11 @@ inline float __shfl_xor(float var, int laneMask, int width=__HSA_WAVEFRONT_SIZE_
 // FIXME: support half type
 /** @} */
 
-inline unsigned int __shfl_xor(unsigned int var, int laneMask, int width=__HSA_WAVEFRONT_SIZE__) __HC__ {
+inline unsigned int __shfl_xor(unsigned int var, int laneMask, int width=0) __HC__ {
+
+    if (width == 0)
+       width = __wavesize();
+
     __u tmp; tmp.u = var;
     tmp.i = __shfl_xor(tmp.i, laneMask, width);
     return tmp.u;
@@ -7713,5 +7760,10 @@ __attribute__((noinline,used)) completion_future parallel_for_each(
 #endif
 }
 #pragma clang diagnostic pop
+
+inline unsigned get_default_device_wavefront_size() {
+  hc::accelerator acc;
+  return acc.get_wavefront_size();
+}
 
 } // namespace hc

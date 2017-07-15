@@ -7,7 +7,7 @@
 #include <vector>
 #include <random>
 
-#define WAVEFRONT_SIZE (64) // as of now, all HSA agents have wavefront size of 64
+#define WAVEFRONT_SIZE (hc::get_default_device_wavefront_size())
 
 #define TEST_DEBUG (0)
 
@@ -24,7 +24,9 @@ bool test__shfl_up(int grid_size, int offset, T init_value) {
   array<T, 1> table(grid_size);
 
   // shift values up in a wavefront
-  parallel_for_each(ex, [&, offset, init_value](index<1>& idx) [[hc]] {
+  size_t wavefront_size = WAVEFRONT_SIZE;
+
+  parallel_for_each(ex, [&, offset, wavefront_size, init_value](index<1>& idx) [[hc]] {
     T value = init_value + __lane_id();
     value = __shfl_up(value, offset);
     table(idx) = value;
@@ -32,7 +34,7 @@ bool test__shfl_up(int grid_size, int offset, T init_value) {
 
   std::vector<T> output = table;
   for (int i = 0; i < grid_size; ++i) {
-    int laneId = i % WAVEFRONT_SIZE;
+    int laneId = i % wavefront_size;
     ret &= (output[i] == (init_value + ((laneId < offset) ? laneId : laneId - offset)));
 #if TEST_DEBUG
     std::cout << output[i] << " ";
@@ -82,11 +84,12 @@ bool test_scan(int grid_size, int sub_wavefront_width) {
   using namespace hc;
   extent<1> ex(grid_size);
   array<int, 1> table(grid_size);
+  size_t wavefront_size = WAVEFRONT_SIZE;
 
-  parallel_for_each(ex, [&, sub_wavefront_width](index<1>& idx) [[hc]] {
+  parallel_for_each(ex, [&, sub_wavefront_width, wavefront_size](index<1>& idx) [[hc]] {
     int laneId = __lane_id();
     int logicalLaneId = laneId % sub_wavefront_width;
-    int value = (WAVEFRONT_SIZE - 1) - laneId;
+    int value = (wavefront_size - 1) - laneId;
 
     for (int i = 1; i <= (sub_wavefront_width / 2); i *= 2) {
       int n = __shfl_up(value, i, sub_wavefront_width);
@@ -98,12 +101,12 @@ bool test_scan(int grid_size, int sub_wavefront_width) {
 
   std::vector<int> output = table;
   for (int i = 0; i < grid_size; ++i) {
-    int laneId = i % WAVEFRONT_SIZE;
+    int laneId = i % wavefront_size;
     int logicalLaneId = laneId % sub_wavefront_width;
     int subWavefrontId = laneId / sub_wavefront_width;
     int expected = 0;
     for (int j = 0; j <= logicalLaneId; ++j) {
-      expected += (WAVEFRONT_SIZE - 1) - (sub_wavefront_width * subWavefrontId) - j;
+      expected += (wavefront_size - 1) - (sub_wavefront_width * subWavefrontId) - j;
     }
     ret &= (output[i] == expected);
 #if TEST_DEBUG
@@ -124,6 +127,9 @@ int main() {
   std::random_device rd;
   std::uniform_int_distribution<int> int_dist(0, 1023);
   std::uniform_real_distribution<float> float_dist(0.0, 1.0);
+
+  if (WAVEFRONT_SIZE == 1)
+    return EXIT_SUCCESS;
 
   // test __shfl_up for different grid sizes and offsets
   ret &= test__shfl_up<int>(2, 0, int_dist(rd));

@@ -356,6 +356,8 @@ public:
     /// get max tile static area size
     virtual size_t GetMaxTileStaticSize() { return 0; }
 
+    virtual size_t GetWaveFrontSize() { return 64; }
+
     /// get all queues associated with this device
     virtual std::vector< std::shared_ptr<KalmarQueue> > get_all_queues() { return std::vector< std::shared_ptr<KalmarQueue> >(); }
 
