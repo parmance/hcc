@@ -11,7 +11,9 @@ The primary programming model of interest is currently C++17 Parallel STL which
 allows heterogeneous computation offloading using the C++ standard.
 
 hcc-phsa was forked from the hcc at a point of development before upstream HCC
-removed the HSAIL backend support. See the original HCC's [README.TXT](https://raw.githubusercontent.com/parmance/hcc/phsa/README.TXT) for more info. The HCC
+removed the HSAIL backend support. See the original HCC's 
+[README.TXT](https://raw.githubusercontent.com/parmance/hcc/phsa/README.TXT)
+for more info. The HCC
 project's upstream repository is [here](https://github.com/RadeonOpenCompute/hcc).
 
 The hcc-phsa work is being done by [Parmance's](http://parmance.com) developers
@@ -21,10 +23,20 @@ for [General Processor Technologies](http://www.generalprocessortech.com/).
 
 First, build and install [phsa](https://github.com/HSAFoundation/phsa) as
 instructed. However, instead of using the master branch of the phsa-runtime,
-use the 'hcc' branch found [here](https://github.com/parmance/phsa-runtime/tree/hcc). It has some minor modifications needed to make hcc run.
+use the 'hcc' branch found [here](https://github.com/parmance/phsa-runtime/tree/hcc).
+It has some minor modifications needed to make hcc run.
 
-After the phsa stack is built as instructed, HCC can be fetched and built
-as follows:
+Then install prerequisities:
+
+On Ubuntu 16.04:
+
+```
+sudo apt-get install git cmake make g++  g++-multilib gcc-multilib \
+python findutils libelf1 libpci3 file debianutils libunwind-dev \
+pkg-config
+```
+
+HCC can be fetched and built as follows:
 
 ```
 git clone https://github.com/parmance/hcc -b phsa
