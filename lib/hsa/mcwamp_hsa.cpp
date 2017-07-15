@@ -332,14 +332,12 @@ public:
                     _hsaExecutableSymbol,
                     HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_GROUP_SEGMENT_SIZE,
                     &this->static_group_segment_size);
-            STATUS_CHECK_Q(status, commandQueue, __LINE__);
-
+ 
             status = 
                 hsa_executable_symbol_get_info(
                     _hsaExecutableSymbol,
                     HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_PRIVATE_SEGMENT_SIZE,
                     &this->private_segment_size);
-            STATUS_CHECK_Q(status, commandQueue, __LINE__);
       }
 
     ~HSAKernel() {
