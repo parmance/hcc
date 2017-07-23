@@ -1796,6 +1796,17 @@ public:
 #endif
         }
 
+        /// Get the profile of the agent
+        hsa_profile_t agentProfile;
+        status = hsa_agent_get_info(agent, HSA_AGENT_INFO_PROFILE, &agentProfile);
+        STATUS_CHECK(status, __LINE__);
+
+        if (agentProfile == HSA_PROFILE_BASE) {
+            profile = hcAgentProfileBase;
+        } else if (agentProfile == HSA_PROFILE_FULL) {
+            profile = hcAgentProfileFull;
+        }
+
         /// Iterate over memory pool of the device and its host
         status = hsa_amd_agent_iterate_memory_pools(agent, HSADevice::find_group_memory, &max_tile_static_size);
         STATUS_CHECK(status, __LINE__);
@@ -1809,7 +1820,8 @@ public:
         /// after iterating memory regions, set if we can use coarse grained regions
         bool result = false;
         if (hasHSACoarsegrainedRegion()) {
-            result = true;
+            // If we have a FULL profile HSA Agent, use fine grained by default.
+            result = profile != hcAgentProfileFull;
             // environment variable HCC_HSA_USEHOSTMEMORY may be used to change
             // the default behavior
             char* hsa_behavior = getenv("HCC_HSA_USEHOSTMEMORY");
@@ -1867,21 +1879,15 @@ public:
         status = hsa_agent_get_info(agent, HSA_AGENT_INFO_ISA, &agentISA);
         STATUS_CHECK(status, __LINE__);
 
-        /// Get the profile of the agent
-        hsa_profile_t agentProfile;
-        status = hsa_agent_get_info(agent, HSA_AGENT_INFO_PROFILE, &agentProfile);
-        STATUS_CHECK(status, __LINE__);
-
-        if (agentProfile == HSA_PROFILE_BASE) {
-            profile = hcAgentProfileBase;
-        } else if (agentProfile == HSA_PROFILE_FULL) {
-            profile = hcAgentProfileFull;
-        }
-
         //---
         //Provide an environment variable to select the mode used to perform the copy operaton
         const char *copy_mode_str = getenv("HCC_UNPINNED_COPY_MODE");
-        this->copy_mode = copy_mode_str ? static_cast<UnpinnedCopyEngine::CopyMode> (atoi(copy_mode_str)) : UnpinnedCopyEngine::ChooseBest;
+        this->copy_mode =
+          copy_mode_str ?
+          static_cast<UnpinnedCopyEngine::CopyMode>(atoi(copy_mode_str))
+          : (profile == hcAgentProfileFull) ? UnpinnedCopyEngine::UseMemcpy :
+          UnpinnedCopyEngine::ChooseBest;
+
         switch (this->copy_mode) {
             case UnpinnedCopyEngine::ChooseBest:    //0
             case UnpinnedCopyEngine::UsePinInPlace: //1
@@ -1889,7 +1895,7 @@ public:
             case UnpinnedCopyEngine::UseMemcpy:     //3
                 break;
             default:
-                this->copy_mode = UnpinnedCopyEngine::ChooseBest;
+              this->copy_mode = UnpinnedCopyEngine::ChooseBest;
         };
         
         long int HCC_H2D_STAGING_THRESHOLD = 
