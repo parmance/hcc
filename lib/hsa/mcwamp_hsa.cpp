@@ -2745,6 +2745,10 @@ public:
         status = hsa_iterate_agents(&HSAContext::find_host, &host);
         STATUS_CHECK(status, __LINE__);
 
+        // if no GPU agent was found, fall back to the CPU agent
+        if (agents.size() == 0)
+          agents.push_back(host);
+
         for (int i = 0; i < agents.size(); ++i) {
             hsa_agent_t agent = agents[i];
             auto Dev = new HSADevice(agent, host);

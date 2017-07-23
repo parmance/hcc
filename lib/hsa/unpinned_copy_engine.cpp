@@ -58,8 +58,9 @@ static hsa_status_t findGlobalPool(hsa_amd_memory_pool_t pool, void* data)
     return HSA_STATUS_SUCCESS;
 }
 
-
-static hsa_status_t find_gpu(hsa_agent_t agent, void *data) {
+static hsa_status_t find_device_type(hsa_agent_t agent,
+                                     hsa_device_type_t wanted_type,
+                                     void *data) {
     hsa_status_t status;
     hsa_device_type_t device_type;
     std::vector<hsa_agent_t>* pAgents = nullptr;
@@ -76,12 +77,21 @@ static hsa_status_t find_gpu(hsa_agent_t agent, void *data) {
     }
 
 
-    if (device_type == HSA_DEVICE_TYPE_GPU)  {
+    if (device_type == wanted_type)  {
         pAgents->push_back(agent);
     }
 
     return HSA_STATUS_SUCCESS;
 }
+
+static hsa_status_t find_cpu(hsa_agent_t agent, void *data) {
+  return find_device_type(agent, HSA_DEVICE_TYPE_CPU, data);
+}
+
+static hsa_status_t find_gpu(hsa_agent_t agent, void *data) {
+  return find_device_type(agent, HSA_DEVICE_TYPE_GPU, data);
+}
+
 
 //-------------------------------------------------------------------------------------------------
 UnpinnedCopyEngine::UnpinnedCopyEngine(hsa_agent_t hsaAgent, hsa_agent_t cpuAgent, size_t bufferSize, int numBuffers, 
@@ -103,6 +113,12 @@ UnpinnedCopyEngine::UnpinnedCopyEngine(hsa_agent_t hsaAgent, hsa_agent_t cpuAgen
     std::vector<hsa_agent_t> agents;
     err = hsa_iterate_agents(&find_gpu, &agents);
     ErrorCheck(err);
+
+    if (agents.size() == 0) {
+      err = hsa_iterate_agents(&find_cpu, &agents);
+      ErrorCheck(err);
+    }
+    assert (agents.size() > 0);
     hsa_agent_t * agentBlock = new hsa_agent_t[agents.size()];
     int i=0;
     for (auto iter=agents.begin(); iter!= agents.end(); iter++) {
