@@ -87,6 +87,16 @@ bool test() {
     int flag;
     while (true) {
       flag = ptr_flag->load(std::memory_order_acquire);
+
+      // HSA does not guarantee forward progress among work-items in
+      // the same work group without barriers. It is also unclear where
+      // the barrier is suposed to be, thus whether this test case is
+      // a legal one or not with HSA as it assumes work-items proceed
+      // despite the "for ever loop". Add barrier here to make it work
+      // with phsa which wants to execute the work-items of this
+      // kernel sequentially.
+      amp_barrier(CLK_GLOBAL_MEM_FENCE);
+
       if (flag >= vecSize || flag < 0) {
         break;
       }
