@@ -32,6 +32,7 @@
 #include <hcc/kalmar_aligned_alloc.h>
 
 #include <hc_am.hpp>
+#include <unistd.h>
 
 #include "unpinned_copy_engine.h"
 
@@ -45,6 +46,8 @@
 #ifndef KALMAR_DEBUG_ASYNC_COPY
 #define KALMAR_DEBUG_ASYNC_COPY (0)
 #endif
+
+#define HSA_WAIT_UNTIL_ROOM_IN_QUEUE true
 
 // Macro for prettier debug messages, use like:
 // DBOUT(" Something happenedd" << myId() << " i= " << i << "\n");
@@ -3115,16 +3118,20 @@ HSADispatch::dispatchKernel(hsa_queue_t* commandQueue, const void *hostKernarg,
         aql.kernarg_address = nullptr;
     }
 
-
     // write packet
     uint32_t queueMask = commandQueue->size - 1;
     // TODO: Need to check if package write is correct.
     uint64_t index = hsa_queue_load_write_index_relaxed(commandQueue);
     uint64_t nextIndex = index + 1;
-    if (nextIndex - hsa_queue_load_read_index_acquire(commandQueue) >= commandQueue->size) {
-      checkHCCRuntimeStatus(Kalmar::HCCRuntimeStatus::HCCRT_STATUS_ERROR_COMMAND_QUEUE_OVERFLOW, __LINE__, commandQueue);
+    while (nextIndex - hsa_queue_load_read_index_acquire(commandQueue) >=
+           commandQueue->size) {
+      if (!HSA_WAIT_UNTIL_ROOM_IN_QUEUE)
+        checkHCCRuntimeStatus(
+          Kalmar::HCCRuntimeStatus::HCCRT_STATUS_ERROR_COMMAND_QUEUE_OVERFLOW,
+          __LINE__, commandQueue);
+      else
+        usleep(5000);
     }
-
 
     hsa_kernel_dispatch_packet_t* q_aql = 
         &(((hsa_kernel_dispatch_packet_t*)(commandQueue->base_address))[index & queueMask]);
