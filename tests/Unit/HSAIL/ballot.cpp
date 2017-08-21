@@ -22,7 +22,7 @@ int main() {
       if (idx[0]==i)
         a[0] = d;
     }).wait();
-    if (a[0] != 0xFFFFFFFFFFFFFFFF) {
+    if (a[0] != ((uint64_t)1 << WAVEFRONT_SIZE) - 1) {
        errors++;
     }
 #if TEST_DEBUG
