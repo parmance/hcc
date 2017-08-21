@@ -1,5 +1,47 @@
 // XFAIL: Linux
 // RUN: %hc %s -o %t.out && %t.out
+
+/* This test case reveals multiple problems in the hcc runtime:
+
+   Due to a race condition, if the kernel execution is not fast
+   enough, there will be a too early release of temporary buffers
+   in ~rw_info().  If this issue is circumvented by disabling the
+   freeing, there's another race in copying back the results from
+   the first kernel execution. If the kernel doesn't finish fast
+   enough, the result reading doesn't get the produced results,
+   but the input data.
+
+   The below patch reproduces the problem in Carrizo by adding
+   a delay to the dispatch packet signaling:
+
+diff --git a/lib/hsa/mcwamp_hsa.cpp b/lib/hsa/mcwamp_hsa.cpp
+index 15a040b..45e8c76 100644
+--- a/lib/hsa/mcwamp_hsa.cpp
++++ b/lib/hsa/mcwamp_hsa.cpp
+@@ -3162,8 +3162,19 @@ HSADispatch::dispatchKernel(hsa_queue_t* commandQueue, const void *hostKernarg,
+     std::cerr << "ring door bell to dispatch kernel\n";
+ #endif
+ 
++    std::thread([commandQueue, index]() {
++	// With a 500 ms delay here it works. Increasing it to about 650 ms
++	// and above starts to introduce errors due to the results being
++	// read out before finishing the computatiton.
++	std::this_thread::sleep_for(std::chrono::milliseconds(650));
++	hsa_signal_store_relaxed(commandQueue->doorbell_signal, index);
++#if KALMAR_DEBUG
++	std::cerr << "dispatched kernel\n";
++#endif
++      }).detach();
++
+     // Ring door bell
+-    hsa_signal_store_relaxed(commandQueue->doorbell_signal, index);
++    //hsa_signal_store_relaxed(commandQueue->doorbell_signal, index);
+ 
+     isDispatched = true;
+   
+
+ */
+
 #include <random>
 #include <algorithm>
 #include <vector>
