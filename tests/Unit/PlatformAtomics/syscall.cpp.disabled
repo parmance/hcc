@@ -112,6 +112,9 @@ bool test() {
     (ptr_c + tid)->store(result, std::memory_order_release);
 
     // test access the memory allocated
+    // BUG: this generates a private segment access in HSA and
+    // seems to work by luck (e.g. due to priv mem address clipping)
+    // on Carrizo.
     int *alloc_array = (int*)result;
     alloc_array[tid] = tid;
     // store result
