@@ -29,7 +29,7 @@ int main() {
     } else if (WAVEFRONT_SIZE == 64 &&
                a[0] != 0xFFFFFFFFFFFFFFFF) {
       errors++;
-    } else {
+    } else if (WAVEFRONT_SIZE > 64) {
       std::cout << "Unexpected WAVEFRONT_SIZE." << std::endl;
       return 1;
     }
