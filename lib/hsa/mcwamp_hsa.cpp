@@ -2419,6 +2419,10 @@ public:
     void* getSymbolAddress(const char* symbolName) override {
         hsa_status_t status;
 
+        std::string symName(symbolName);
+	if (symName[0] != '&')
+ 	    symName = std::string("&") + symName;
+
         unsigned long* symbol_ptr = nullptr;
         if (executables.size() != 0) {
 
@@ -2428,7 +2432,7 @@ public:
 
                 // get symbol
                 hsa_executable_symbol_t symbol;
-                status = hsa_executable_get_symbol(executable->hsaExecutable, NULL, symbolName, agent, 0, &symbol);
+                status = hsa_executable_get_symbol(executable->hsaExecutable, NULL, symName.c_str(), agent, 0, &symbol);
                 STATUS_CHECK_SYMBOL(status, symbolName, __LINE__);
 
                 if (status == HSA_STATUS_SUCCESS) {
@@ -2480,7 +2484,7 @@ public:
     // FIXME: return values
     void memcpySymbol(const char* symbolName, void* hostptr, size_t count, size_t offset = 0, enum hcCommandKind kind = hcMemcpyHostToDevice) override {
         if (executables.size() != 0) {
-            unsigned long* symbol_ptr = (unsigned long*)getSymbolAddress(symbolName);
+  	    unsigned long* symbol_ptr = (unsigned long*)getSymbolAddress(symbolName);
             memcpySymbol(symbol_ptr, hostptr, count, offset, kind);
         } else {
 #if KALMAR_DEBUG
