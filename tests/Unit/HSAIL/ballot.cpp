@@ -24,10 +24,14 @@ int main() {
         a[0] = d;
     }).wait();
     if (WAVEFRONT_SIZE < 64 &&
-	a[0] != ((uint64_t)1 << WAVEFRONT_SIZE) - 1) {
-       errors++;
-    } else if (a[0] != 0xFFFFFFFFFFFFFFFF) {
-       errors++;
+        a[0] != ((uint64_t)1 << WAVEFRONT_SIZE) - 1) {
+      errors++;
+    } else if (WAVEFRONT_SIZE == 64 &&
+               a[0] != 0xFFFFFFFFFFFFFFFF) {
+      errors++;
+    } else {
+      std::cout << "Unexpected WAVEFRONT_SIZE." << std::endl;
+      return 1;
     }
 #if TEST_DEBUG
     std::cout << "(i=" << i << "): 0x" << std::hex << a[0] << std::endl;
